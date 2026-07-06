@@ -2,70 +2,18 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mobile PDF Form Filler</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-    <style>
-        body { margin: 0; font-family: system-ui, sans-serif; background: #121212; color: #fff; }
-        .app-bar { position: sticky; top: 0; background: #1e1e1e; padding: 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2d2d2d; z-index: 100; }
-        .app-title { font-weight: bold; font-size: 1.1rem; }
-        .actions { display: flex; gap: 10px; }
-        .form-container { padding: 16px; display: flex; flex-direction: column; gap: 16px; max-width: 600px; margin: 0 auto; }
-        .field-group { display: flex; flex-direction: column; gap: 6px; }
-        label { font-size: 0.9rem; color: #aaa; font-weight: 500; }
-        
-        /* Mobile friendly text field styles */
-        input[type="text"], select { 
-            background: #222; 
-            border: 1px solid #333; 
-            color: #fff; 
-            padding: 14px; 
-            border-radius: 8px; 
-            font-size: 16px; 
-            width: 100%; 
-            box-sizing: border-box; 
-            -webkit-appearance: none;
-        }
-        input[type="text"]:focus, select:focus { border-color: #2563eb; outline: none; }
-        
-        /* Checkbox list alignment */
-        .checkbox-group { display: flex; align-items: center; gap: 12px; background: #222; padding: 14px; border-radius: 8px; border: 1px solid #333; }
-        input[type="checkbox"] { width: 22px; height: 22px; border-radius: 4px; accent-color: #2563eb; }
-        
-        .preview-card { background: #1e1e1e; border-radius: 12px; padding: 12px; margin-top: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); display: none; position: relative; overflow: hidden; }
-        canvas { display: block; width: 100%; height: auto; border-radius: 6px; background: #fff; }
-        .btn { background: #2563eb; color: white; border: none; padding: 10px 16px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 14px; }
-        .btn-secondary { background: #333; border: 1px solid #444; }
-        #file-input { display: none; }
-        .placeholder-text { text-align: center; color: #666; padding: 40px 20px; font-size: 1.1rem; }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Form Filler</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-
-    <div class="app-bar">
-        <span class="app-title">PDF Mobile Filler</span>
-        <div class="actions">
-            <button class="btn btn-secondary" onclick="document.getElementById('file-input').click()">Open PDF</button>
-            <button class="btn" id="export-btn" style="display: none;">Save PDF</button>
-        </div>
+    <div class="container">
+        <h1>PDF Form Filler</h1>
+        <input type="file" id="fileInput" accept="application/pdf" />
+        <button id="loadPdf">Load PDF</button>
+        <canvas id="pdfCanvas"></canvas>
+        <button id="printPdf">Print PDF</button>
     </div>
-
-    <input type="file" id="file-input" accept="application/pdf">
-
-    <div class="form-container">
-        <div id="placeholder" class="placeholder-text">
-            Tap "Open PDF" above to load a document.
-        </div>
-
-        <div id="dynamic-fields-stack"></div>
-
-        <div class="preview-card" id="preview-card">
-            <label style="display: block; margin-bottom: 8px;">Document Preview</label>
-            <canvas id="mobile-pdf-canvas"></canvas>
-        </div>
-    </div>
-
     <script src="app.js"></script>
 </body>
 </html>
