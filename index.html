@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mobile PDF Form Filler</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <style>
+        body { margin: 0; font-family: system-ui, sans-serif; background: #121212; color: #fff; }
+        .app-bar { sticky: top; background: #1e1e1e; padding: 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2d2d2d; }
+        .form-container { padding: 16px; display: flex; flex-direction: column; gap: 16px; max-width: 600px; margin: 0 auto; }
+        .field-group { display: flex; flex-direction: column; gap: 6px; }
+        label { font-size: 0.9rem; color: #aaa; font-weight: 500; }
+        input[type="text"] { background: #222; border: 1px solid #333; color: #fff; padding: 12px; border-radius: 8px; font-size: 16px; width: 100%; box-sizing: border-box; }
+        input[type="text"]:focus { border-color: #2563eb; outline: none; }
+        .preview-card { background: #1e1e1e; border-radius: 12px; padding: 12px; margin-top: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+        canvas { width: 100%; height: auto; border-radius: 6px; background: #fff; }
+        .btn { background: #2563eb; color: white; border: none; padding: 10px 16px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div class="app-bar">
+        <span>PDF Mobile Filler</span>
+        <button class="btn" id="export-btn">Save</button>
+    </div>
+
+    <div class="form-container">
+        <div id="dynamic-fields-stack">
+            </div>
+
+        <div class="preview-card">
+            <label>Document Preview</label>
+            <canvas id="mobile-pdf-canvas"></canvas>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
