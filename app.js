@@ -1,5 +1,6 @@
 let currentPdfBytes = null;
 const fieldValues = {};
+let scale = 1.0;
 
 // Point directly to the CDN worker globally
 const pdfjs = window['pdfjs-dist/build/pdf'];
@@ -15,7 +16,11 @@ document.getElementById('file-input').addEventListener('change', async (e) => {
     reader.onload = async (event) => {
         currentPdfBytes = new Uint8Array(event.target.result);
         
+        // Render the preview first to establish the canvas sizing scale
+        await renderCanvasPreview(currentPdfBytes);
+        // Build the interactive mobile form fields right after
         await renderMobileForm(currentPdfBytes);
+        
         document.getElementById('export-btn').style.display = 'block';
         document.getElementById('preview-card').style.display = 'block';
     };
@@ -29,6 +34,26 @@ document.getElementById('dynamic-fields-stack').addEventListener('touchstart', (
     }
 });
 
+// Draw page image layout preview directly on screen using standard canvas configurations
+async function renderCanvasPreview(bytes) {
+    const loadingTask = pdfjs.getDocument({ data: bytes });
+    const pdf = await loadingTask.promise;
+    const page = await pdf.getPage(1);
+    
+    const canvas = document.getElementById('mobile-pdf-canvas');
+    const context = canvas.getContext('2d');
+    
+    // Set scale exactly to match parent element width for responsive mobile viewports
+    scale = canvas.parentElement.clientWidth / page.getViewport({ scale: 1 }).width;
+    const viewport = page.getViewport({ scale: scale });
+    
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    
+    await page.render({ canvasContext: context, viewport: viewport }).promise;
+}
+
+// Extract interactive objects using standard coordinates
 async function renderMobileForm(pdfBytes) {
     const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
     const form = pdfDoc.getForm();
@@ -37,12 +62,18 @@ async function renderMobileForm(pdfBytes) {
     const container = document.getElementById('dynamic-fields-stack');
     container.innerHTML = ''; 
 
+    if (fields.length === 0) {
+        container.innerHTML = '<p style="text-align:center; color:#aaa;">No interactive form fields detected in this PDF structure.</p>';
+        return;
+    }
+
     fields.forEach(field => {
         const type = field.constructor.name;
         const name = field.getName();
         const fieldGroup = document.createElement('div');
 
-        if (type === 'PDFTextField') {
+        // Text Fields
+        if (type === 'PDFTextField' || type.includes('Text')) {
             fieldGroup.className = 'field-group';
             fieldGroup.innerHTML = `
                 <label>${name}</label>
@@ -61,9 +92,10 @@ async function renderMobileForm(pdfBytes) {
             });
             container.appendChild(fieldGroup);
 
-        } else if (type === 'PDFCheckBox') {
+        // Checkboxes
+        } else if (type === 'PDFCheckBox' || type.includes('CheckBox') || type.includes('Button')) {
             fieldGroup.className = 'checkbox-group';
-            const isChecked = field.isChecked();
+            const isChecked = typeof field.isChecked === 'function' ? field.isChecked() : false;
             fieldGroup.innerHTML = `
                 <input type="checkbox" data-field-name="${name}" ${isChecked ? 'checked' : ''} id="chk-${name}">
                 <label for="chk-${name}">${name}</label>
@@ -73,10 +105,11 @@ async function renderMobileForm(pdfBytes) {
             });
             container.appendChild(fieldGroup);
 
-        } else if (type === 'PDFDropdown') {
+        // Dropdowns
+        } else if (type === 'PDFDropdown' || type.includes('Dropdown') || type.includes('Choice')) {
             fieldGroup.className = 'field-group';
-            const options = field.getOptions();
-            const selected = field.getSelected();
+            const options = typeof field.getOptions === 'function' ? field.getOptions() : [];
+            const selected = typeof field.getSelected === 'function' ? field.getSelected() : [];
             
             let optionsHtml = options.map(opt => `<option value="${opt}" ${selected.includes(opt) ? 'selected' : ''}>${opt}</option>`).join('');
             
@@ -93,25 +126,9 @@ async function renderMobileForm(pdfBytes) {
             container.appendChild(fieldGroup);
         }
     });
-
-    renderCanvasPreview(pdfBytes);
 }
 
-async function renderCanvasPreview(bytes) {
-    const loadingTask = pdfjs.getDocument({ data: bytes });
-    const pdf = await loadingTask.promise;
-    const page = await pdf.getPage(1);
-    
-    const canvas = document.getElementById('mobile-pdf-canvas');
-    const context = canvas.getContext('2d');
-    
-    const viewport = page.getViewport({ scale: canvas.parentElement.clientWidth / page.getViewport({ scale: 1 }).width });
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-    
-    await page.render({ canvasContext: context, viewport: viewport }).promise;
-}
-
+// Inject entries and download complete file instance updates
 document.getElementById('export-btn').addEventListener('click', async () => {
     if (!currentPdfBytes) return;
 
@@ -123,15 +140,15 @@ document.getElementById('export-btn').addEventListener('click', async () => {
             const field = form.getField(fieldName);
             const type = field.constructor.name;
 
-            if (type === 'PDFTextField') {
+            if (type === 'PDFTextField' || type.includes('Text')) {
                 field.setText(fieldValues[fieldName]);
-            } else if (type === 'PDFCheckBox') {
+            } else if (type === 'PDFCheckBox' || type.includes('CheckBox')) {
                 if (fieldValues[fieldName]) {
                     field.check();
                 } else {
                     field.uncheck();
                 }
-            } else if (type === 'PDFDropdown') {
+            } else if (type === 'PDFDropdown' || type.includes('Dropdown')) {
                 field.select(fieldValues[fieldName]);
             }
         } catch (err) {
