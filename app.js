@@ -2,8 +2,8 @@ let currentPdfBytes = null;
 const fieldValues = {};
 let scale = 1.0;
 
-// Point directly to the CDN worker globally
-const pdfjs = window['pdfjs-dist/build/pdf'];
+// FIX 1: Use the correct global variable name for PDF.js
+const pdfjs = window.pdfjsLib;
 pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 document.getElementById('file-input').addEventListener('change', async (e) => {
@@ -16,13 +16,18 @@ document.getElementById('file-input').addEventListener('change', async (e) => {
     reader.onload = async (event) => {
         currentPdfBytes = new Uint8Array(event.target.result);
         
-        // Render the preview first to establish the canvas sizing scale
-        await renderCanvasPreview(currentPdfBytes);
-        // Build the interactive mobile form fields right after
-        await renderMobileForm(currentPdfBytes);
-        
-        document.getElementById('export-btn').style.display = 'block';
-        document.getElementById('preview-card').style.display = 'block';
+        try {
+            // Render the preview first to establish the canvas sizing scale
+            await renderCanvasPreview(currentPdfBytes);
+            // Build the interactive mobile form fields right after
+            await renderMobileForm(currentPdfBytes);
+            
+            document.getElementById('export-btn').style.display = 'block';
+            document.getElementById('preview-card').style.display = 'block';
+        } catch (error) {
+            console.error("Error loading PDF:", error);
+            alert("Failed to process this PDF file.");
+        }
     };
     reader.readAsArrayBuffer(file);
 });
@@ -68,12 +73,12 @@ async function renderMobileForm(pdfBytes) {
     }
 
     fields.forEach(field => {
-        const type = field.constructor.name;
         const name = field.getName();
         const fieldGroup = document.createElement('div');
 
+        // FIX 2: Use instanceof checks instead of constructor string names
         // Text Fields
-        if (type === 'PDFTextField' || type.includes('Text')) {
+        if (field instanceof PDFLib.PDFTextField) {
             fieldGroup.className = 'field-group';
             fieldGroup.innerHTML = `
                 <label>${name}</label>
@@ -93,7 +98,7 @@ async function renderMobileForm(pdfBytes) {
             container.appendChild(fieldGroup);
 
         // Checkboxes
-        } else if (type === 'PDFCheckBox' || type.includes('CheckBox') || type.includes('Button')) {
+        } else if (field instanceof PDFLib.PDFCheckBox) {
             fieldGroup.className = 'checkbox-group';
             const isChecked = typeof field.isChecked === 'function' ? field.isChecked() : false;
             fieldGroup.innerHTML = `
@@ -106,7 +111,7 @@ async function renderMobileForm(pdfBytes) {
             container.appendChild(fieldGroup);
 
         // Dropdowns
-        } else if (type === 'PDFDropdown' || type.includes('Dropdown') || type.includes('Choice')) {
+        } else if (field instanceof PDFLib.PDFDropdown) {
             fieldGroup.className = 'field-group';
             const options = typeof field.getOptions === 'function' ? field.getOptions() : [];
             const selected = typeof field.getSelected === 'function' ? field.getSelected() : [];
@@ -138,17 +143,17 @@ document.getElementById('export-btn').addEventListener('click', async () => {
     Object.keys(fieldValues).forEach(fieldName => {
         try {
             const field = form.getField(fieldName);
-            const type = field.constructor.name;
 
-            if (type === 'PDFTextField' || type.includes('Text')) {
+            // FIX 2 (Continued): Use instanceof checks here as well
+            if (field instanceof PDFLib.PDFTextField) {
                 field.setText(fieldValues[fieldName]);
-            } else if (type === 'PDFCheckBox' || type.includes('CheckBox')) {
+            } else if (field instanceof PDFLib.PDFCheckBox) {
                 if (fieldValues[fieldName]) {
                     field.check();
                 } else {
                     field.uncheck();
                 }
-            } else if (type === 'PDFDropdown' || type.includes('Dropdown')) {
+            } else if (field instanceof PDFLib.PDFDropdown) {
                 field.select(fieldValues[fieldName]);
             }
         } catch (err) {
