@@ -2,7 +2,7 @@ let currentPdfBytes = null;
 const fieldValues = {};
 let scale = 1.0;
 
-// FIX 1: Use the correct global variable name for PDF.js
+// 1. Point to the correct global PDF.js object
 const pdfjs = window.pdfjsLib;
 pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
@@ -14,25 +14,27 @@ document.getElementById('file-input').addEventListener('change', async (e) => {
 
     const reader = new FileReader();
     reader.onload = async (event) => {
-        currentPdfBytes = new Uint8Array(event.target.result);
+        const arrayBuffer = event.target.result;
         
         try {
-            // Render the preview first to establish the canvas sizing scale
-            await renderCanvasPreview(currentPdfBytes);
-            // Build the interactive mobile form fields right after
+            // 2. Clone the array buffers so both engines don't fight over the same memory space
+            const previewBytes = new Uint8Array(arrayBuffer.slice(0));
+            await renderCanvasPreview(previewBytes);
+            
+            currentPdfBytes = new Uint8Array(arrayBuffer.slice(0));
             await renderMobileForm(currentPdfBytes);
             
             document.getElementById('export-btn').style.display = 'block';
             document.getElementById('preview-card').style.display = 'block';
         } catch (error) {
-            console.error("Error loading PDF:", error);
-            alert("Failed to process this PDF file.");
+            console.error("Critical PDF processing failure:", error);
+            alert(`Failed to parse this document: ${error.message}`);
         }
     };
     reader.readAsArrayBuffer(file);
 });
 
-// Direct touchstart tracking to instantly focus inputs and force soft keyboards
+// Direct touchstart tracking to instantly focus inputs and force soft keyboards on mobile
 document.getElementById('dynamic-fields-stack').addEventListener('touchstart', (e) => {
     if (e.target.tagName === 'INPUT' && e.target.type === 'text') {
         e.target.focus();
@@ -58,11 +60,19 @@ async function renderCanvasPreview(bytes) {
     await page.render({ canvasContext: context, viewport: viewport }).promise;
 }
 
-// Extract interactive objects using standard coordinates
+// Extract interactive objects safely
 async function renderMobileForm(pdfBytes) {
-    const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
-    const form = pdfDoc.getForm();
-    const fields = form.getFields();
+    let fields = [];
+    try {
+        const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
+        const form = pdfDoc.getForm();
+        fields = form.getFields();
+    } catch (e) {
+        console.error("Failed to parse form structure:", e);
+        document.getElementById('dynamic-fields-stack').innerHTML = 
+            `<p style="text-align:center; color:#ff6b6b;">Error reading PDF fields: ${e.message}</p>`;
+        return;
+    }
     
     const container = document.getElementById('dynamic-fields-stack');
     container.innerHTML = ''; 
@@ -76,7 +86,7 @@ async function renderMobileForm(pdfBytes) {
         const name = field.getName();
         const fieldGroup = document.createElement('div');
 
-        // FIX 2: Use instanceof checks instead of constructor string names
+        // 3. Robust 'instanceof' checks targeting minified code safely
         // Text Fields
         if (field instanceof PDFLib.PDFTextField) {
             fieldGroup.className = 'field-group';
@@ -133,43 +143,47 @@ async function renderMobileForm(pdfBytes) {
     });
 }
 
-// Inject entries and download complete file instance updates
+// Inject updates and trigger native file downloads
 document.getElementById('export-btn').addEventListener('click', async () => {
     if (!currentPdfBytes) return;
 
-    const pdfDoc = await PDFLib.PDFDocument.load(currentPdfBytes);
-    const form = pdfDoc.getForm();
+    try {
+        const pdfDoc = await PDFLib.PDFDocument.load(currentPdfBytes);
+        const form = pdfDoc.getForm();
 
-    Object.keys(fieldValues).forEach(fieldName => {
-        try {
-            const field = form.getField(fieldName);
+        Object.keys(fieldValues).forEach(fieldName => {
+            try {
+                const field = form.getField(fieldName);
 
-            // FIX 2 (Continued): Use instanceof checks here as well
-            if (field instanceof PDFLib.PDFTextField) {
-                field.setText(fieldValues[fieldName]);
-            } else if (field instanceof PDFLib.PDFCheckBox) {
-                if (fieldValues[fieldName]) {
-                    field.check();
-                } else {
-                    field.uncheck();
+                if (field instanceof PDFLib.PDFTextField) {
+                    field.setText(fieldValues[fieldName]);
+                } else if (field instanceof PDFLib.PDFCheckBox) {
+                    if (fieldValues[fieldName]) {
+                        field.check();
+                    } else {
+                        field.uncheck();
+                    }
+                } else if (field instanceof PDFLib.PDFDropdown) {
+                    field.select(fieldValues[fieldName]);
                 }
-            } else if (field instanceof PDFLib.PDFDropdown) {
-                field.select(fieldValues[fieldName]);
+            } catch (err) {
+                console.warn(`Could not update field: ${fieldName}`, err);
             }
-        } catch (err) {
-            console.warn(`Could not update field: ${fieldName}`, err);
-        }
-    });
+        });
 
-    const modifiedPdfBytes = await pdfDoc.save();
+        const modifiedPdfBytes = await pdfDoc.save();
 
-    const blob = new Blob([modifiedPdfBytes], { type: 'application/pdf' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'filled_mobile_document.pdf';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+        const blob = new Blob([modifiedPdfBytes], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'filled_mobile_document.pdf';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    } catch (exportError) {
+        console.error("Export process failed:", exportError);
+        alert("Failed to save and generate your changes onto the final document.");
+    }
 });
